@@ -29,7 +29,7 @@ fn part1(input: []const u8) !usize {
             while (blocks.next()) |block| {
 
                 // Split pull into <count> <color>
-                const space = std.mem.indexOf(u8, block, " ").?;
+                const space = std.mem.indexOfScalar(u8, block, ' ').?;
                 const count = try std.fmt.parseInt(i32, block[0..space], 10);
                 const color = block[space + 1 ..];
 
@@ -76,14 +76,15 @@ fn part2(input: []const u8) !usize {
             while (blocks.next()) |block| {
 
                 // Split pull into <count> <color>
-                const space = std.mem.indexOf(u8, block, " ").?;
+                const space = std.mem.indexOfScalar(u8, block, ' ').?;
                 const count = try std.fmt.parseInt(usize, block[0..space], 10);
                 const color = block[space + 1 ..];
 
                 // Update maximums based on color
                 inline for (std.meta.fields(ColorCount)) |field| {
                     if (std.mem.eql(u8, color, field.name)) {
-                        @field(counts, field.name) = @max(@field(counts, field.name), count);
+                        const countField = &@field(counts, field.name);
+                        countField.* = @max(countField.*, count);
                     }
                 }
             }
