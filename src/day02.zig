@@ -1,75 +1,99 @@
 const std = @import("std");
 
+// Struct to store amounts of colors
+const ColorCount = struct {
+    red: usize = 0,
+    green: usize = 0,
+    blue: usize = 0,
+};
+
 fn part1(input: []const u8) !usize {
-    var total: usize = 0;
-    var lines = std.mem.tokenizeScalar(u8, input, '\n');
+    var idSum: usize = 0;
 
-    var game: usize = 0;
-    gameloop: while (lines.next()) |line| {
-        game += 1;
+    // Limits for each color
+    const COLOR_LIMITS = ColorCount{ .red = 12, .green = 13, .blue = 14 };
 
-        const startOfData = std.mem.indexOfScalar(u8, line, ':').?;
+    // Iterate through all lines
+    var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
+    var game: usize = 1;
+    gameloop: while (linesIter.next()) |line| : (game += 1) {
+        // Find beginning of game data
+        const startOfData = std.mem.indexOfScalar(u8, line, ':').? + 2;
 
-        var pulls = std.mem.splitSequence(u8, line[(startOfData + 2)..], "; ");
+        // Iterate through the pulls
+        var pulls = std.mem.splitSequence(u8, line[startOfData..], "; ");
         while (pulls.next()) |pull| {
+
+            // Iterate through different block pulls
             var blocks = std.mem.splitSequence(u8, pull, ", ");
             while (blocks.next()) |block| {
-                const space = std.mem.indexOf(u8, block, " ").?;
 
+                // Split pull into <count> <color>
+                const space = std.mem.indexOf(u8, block, " ").?;
                 const count = try std.fmt.parseInt(i32, block[0..space], 10);
                 const color = block[space + 1 ..];
 
-                if (std.mem.eql(u8, color, "blue") and count > 14) {
-                    continue :gameloop;
-                } else if (std.mem.eql(u8, color, "red") and count > 12) {
-                    continue :gameloop;
-                } else if (std.mem.eql(u8, color, "green") and count > 13) {
-                    continue :gameloop;
+                // Compiletime comparison to struct fields
+                inline for (std.meta.fields(@TypeOf(COLOR_LIMITS))) |field| {
+                    if (std.mem.eql(u8, color, field.name)) {
+
+                        // If count is higher than limit, skip this game
+                        if (count > @field(COLOR_LIMITS, field.name)) {
+                            continue :gameloop;
+                        }
+                    }
                 }
             }
         }
-        total += game;
+
+        // Update sum of valid game IDs
+        idSum += game;
     }
 
-    return total;
+    return idSum;
 }
 
 fn part2(input: []const u8) !usize {
-    var total: usize = 0;
+    var idSum: usize = 0;
 
-    var game: usize = 0;
+    // Iterate through lines
+    var game: usize = 1;
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
-    while (linesIter.next()) |line| {
-        game += 1;
+    while (linesIter.next()) |line| : (game += 1) {
 
-        const startOfData = std.mem.indexOfScalar(u8, line, ':').?;
+        // Find start of game data
+        const startOfData = std.mem.indexOfScalar(u8, line, ':').? + 2;
 
-        var minRed: usize = 0;
-        var minBlue: usize = 0;
-        var minGreen: usize = 0;
+        // Keep track of color counts
+        var counts = ColorCount{};
 
-        var pulls = std.mem.splitSequence(u8, line[(startOfData + 2)..], "; ");
+        // Iterate through pulls
+        var pulls = std.mem.splitSequence(u8, line[startOfData..], "; ");
         while (pulls.next()) |pull| {
+
+            // Iterate through blocks
             var blocks = std.mem.splitSequence(u8, pull, ", ");
             while (blocks.next()) |block| {
-                const space = std.mem.indexOf(u8, block, " ").?;
 
+                // Split pull into <count> <color>
+                const space = std.mem.indexOf(u8, block, " ").?;
                 const count = try std.fmt.parseInt(usize, block[0..space], 10);
                 const color = block[space + 1 ..];
 
-                if (std.mem.eql(u8, color, "blue")) {
-                    minBlue = @max(minBlue, count);
-                } else if (std.mem.eql(u8, color, "red")) {
-                    minRed = @max(minRed, count);
-                } else if (std.mem.eql(u8, color, "green")) {
-                    minGreen = @max(minGreen, count);
+                // Update maximums based on color
+                inline for (std.meta.fields(ColorCount)) |field| {
+                    if (std.mem.eql(u8, color, field.name)) {
+                        @field(counts, field.name) = @max(@field(counts, field.name), count);
+                    }
                 }
             }
         }
-        total += minRed * minBlue * minGreen;
+
+        // Update total sum
+        idSum += counts.red * counts.green * counts.blue;
     }
 
-    return total;
+    return idSum;
 }
 
 pub fn main() !void {

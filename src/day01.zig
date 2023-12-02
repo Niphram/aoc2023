@@ -1,69 +1,76 @@
 const std = @import("std");
 
-var NUMBERS = [_][]const u8{ "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
-
 fn part1(input: []const u8) usize {
-    var total: usize = 0;
+    var calibrationSum: usize = 0;
 
+    // Split input into lines
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
     while (linesIter.next()) |line| {
-        var firstNumberMinIndex: usize = std.math.maxInt(usize);
-        var firstNumber: usize = 0;
-        var secondNumberMaxIndex: usize = 0;
-        var secondNumber: usize = 0;
+        var firstDigit: ?u8 = null;
+        var lastDigit: ?u8 = null;
 
-        for (NUMBERS[10..], 0..) |numberSlice, k| {
-            if (std.mem.indexOf(u8, line, numberSlice)) |foundIndex| {
-                if (foundIndex < firstNumberMinIndex) {
-                    firstNumberMinIndex = foundIndex;
-                    firstNumber = k % 10;
-                }
-            }
+        // Iterate through every character
+        for (line) |char| {
 
-            if (std.mem.lastIndexOf(u8, line, numberSlice)) |foundIndex| {
-                if (foundIndex >= secondNumberMaxIndex) {
-                    secondNumberMaxIndex = foundIndex;
-                    secondNumber = k % 10;
+            // Check if character is a digit
+            if (std.ascii.isDigit(char)) {
+
+                // Update first digit, if it is still null
+                if (firstDigit == null) {
+                    firstDigit = char - '0';
                 }
+
+                // Always update last digit
+                lastDigit = char - '0';
             }
         }
 
-        total += firstNumber * 10 + secondNumber;
+        // Update total with calibration value
+        calibrationSum += firstDigit.? * 10 + lastDigit.?;
     }
 
-    return total;
+    return calibrationSum;
 }
 
 fn part2(input: []const u8) usize {
-    var total: usize = 0;
+    var calibrationSum: usize = 0;
 
+    // All possible numbers as strings
+    const NUMBERS = [_][]const u8{ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+
+    // Split input into lines
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
     while (linesIter.next()) |line| {
+        // Keep track of the first and last number
         var firstNumberMinIndex: usize = std.math.maxInt(usize);
-        var firstNumber: usize = 0;
-        var secondNumberMaxIndex: usize = 0;
-        var secondNumber: usize = 0;
+        var lastNumberMaxIndex: usize = 0;
+        var firstNumber: ?usize = null;
+        var lastNumber: ?usize = null;
 
-        for (NUMBERS, 0..) |numberSlice, k| {
-            if (std.mem.indexOf(u8, line, numberSlice)) |foundIndex| {
-                if (foundIndex < firstNumberMinIndex) {
-                    firstNumberMinIndex = foundIndex;
-                    firstNumber = k % 10;
+        // Iterate through all number strings
+        for (NUMBERS, 0..) |numberSlice, currentNumber| {
+            // Find first number
+            if (std.mem.indexOf(u8, line, numberSlice)) |idx| {
+                if (idx < firstNumberMinIndex) {
+                    firstNumberMinIndex = idx;
+                    firstNumber = currentNumber % 9 + 1;
                 }
             }
 
-            if (std.mem.lastIndexOf(u8, line, numberSlice)) |foundIndex| {
-                if (foundIndex >= secondNumberMaxIndex) {
-                    secondNumberMaxIndex = foundIndex;
-                    secondNumber = k % 10;
+            // Find last number
+            if (std.mem.lastIndexOf(u8, line, numberSlice)) |idx| {
+                if (idx >= lastNumberMaxIndex) {
+                    lastNumberMaxIndex = idx;
+                    lastNumber = currentNumber % 9 + 1;
                 }
             }
         }
 
-        total += firstNumber * 10 + secondNumber;
+        // Update total with calibration value
+        calibrationSum += firstNumber.? * 10 + lastNumber.?;
     }
 
-    return total;
+    return calibrationSum;
 }
 
 pub fn main() !void {
