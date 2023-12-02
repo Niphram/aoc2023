@@ -6,7 +6,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardOptimizeOption(.{});
 
-    const install_all = b.step("install_all", "Install all days");
     const run_all = b.step("run_all", "Run all days");
 
     const generate = b.step("generate", "Generate stub files from template/template.zig");
@@ -35,16 +34,6 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = mode,
         });
-
-        const install_cmd = b.addInstallArtifact(exe, .{});
-
-        {
-            const step_key = b.fmt("install_{s}", .{dayString});
-            const step_desc = b.fmt("Install {s}.exe", .{dayString});
-            const install_step = b.step(step_key, step_desc);
-            install_step.dependOn(&install_cmd.step);
-            install_all.dependOn(&install_cmd.step);
-        }
 
         const run_cmd = b.addRunArtifact(exe);
         if (b.args) |args| {

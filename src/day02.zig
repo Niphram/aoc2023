@@ -2,7 +2,7 @@ const std = @import("std");
 
 fn part1(input: []const u8) !usize {
     var total: usize = 0;
-    var lines = std.mem.tokenize(u8, input, "\n");
+    var lines = std.mem.tokenizeScalar(u8, input, '\n');
 
     var game: usize = 0;
     gameloop: while (lines.next()) |line| {
@@ -36,10 +36,10 @@ fn part1(input: []const u8) !usize {
 
 fn part2(input: []const u8) !usize {
     var total: usize = 0;
-    var lines = std.mem.tokenize(u8, input, "\n");
 
     var game: usize = 0;
-    while (lines.next()) |line| {
+    var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
+    while (linesIter.next()) |line| {
         game += 1;
 
         const startOfData = std.mem.indexOfScalar(u8, line, ':').?;
@@ -75,6 +75,7 @@ fn part2(input: []const u8) !usize {
 pub fn main() !void {
     const content = comptime @embedFile("data/day02.txt");
 
+    std.debug.print("~~ Day 02 ~~\n", .{});
     std.debug.print("Part 1: {}\n", .{try part1(content)});
     std.debug.print("Part 2: {}\n", .{try part2(content)});
 }

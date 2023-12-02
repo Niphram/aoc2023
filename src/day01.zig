@@ -4,9 +4,9 @@ var NUMBERS = [_][]const u8{ "zero", "one", "two", "three", "four", "five", "six
 
 fn part1(input: []const u8) usize {
     var total: usize = 0;
-    var readIter = std.mem.tokenize(u8, input, "\n");
 
-    while (readIter.next()) |line| {
+    var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
+    while (linesIter.next()) |line| {
         var firstNumberMinIndex: usize = std.math.maxInt(usize);
         var firstNumber: usize = 0;
         var secondNumberMaxIndex: usize = 0;
@@ -36,9 +36,9 @@ fn part1(input: []const u8) usize {
 
 fn part2(input: []const u8) usize {
     var total: usize = 0;
-    var readIter = std.mem.tokenize(u8, input, "\n");
 
-    while (readIter.next()) |line| {
+    var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
+    while (linesIter.next()) |line| {
         var firstNumberMinIndex: usize = std.math.maxInt(usize);
         var firstNumber: usize = 0;
         var secondNumberMaxIndex: usize = 0;
@@ -67,8 +67,9 @@ fn part2(input: []const u8) usize {
 }
 
 pub fn main() !void {
-    const content = comptime @embedFile("data/day01.txt");
+    const input = comptime @embedFile("data/day01.txt");
 
-    std.debug.print("Part 1: {}\n", .{part1(content)});
-    std.debug.print("Part 2: {}\n", .{part2(content)});
+    std.debug.print("~~ Day 01 ~~\n", .{});
+    std.debug.print("Part 1: {}\n", .{part1(input)});
+    std.debug.print("Part 2: {}\n", .{part2(input)});
 }
