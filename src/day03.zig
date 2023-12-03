@@ -1,11 +1,33 @@
 const std = @import("std");
 
-const SymbolPos = struct { type: u8, x: isize = 0, y: isize = 0 };
+const Pos = struct {
+    x: usize = 0,
+    y: usize = 0,
+
+    fn new(x: usize, y: usize) Pos {
+        return Pos{ .x = x, .y = y };
+    }
+};
 
 const NumberPos = struct {
     number: usize = 0,
-    x: isize = 0,
-    y: isize = 0,
+    pos: Pos = Pos{},
+
+    fn new(number: usize, x: usize, y: usize) NumberPos {
+        return NumberPos{ .number = number, .pos = Pos.new(x, y) };
+    }
+
+    fn digits(self: *const NumberPos) usize {
+        if (self.number == 0) return 1;
+        return std.math.log10_int(self.number) + 1;
+    }
+
+    fn next_to(self: *const NumberPos, pos: Pos) bool {
+        const xAdjacent = pos.x + 1 >= self.pos.x and pos.x <= self.pos.x + self.digits();
+        const yAdjacent = pos.y + 1 >= self.pos.y and pos.y <= self.pos.y + 1;
+
+        return xAdjacent and yAdjacent;
+    }
 };
 
 fn part1(input: []const u8) !usize {
@@ -18,44 +40,43 @@ fn part1(input: []const u8) !usize {
     var numbers = std.ArrayList(NumberPos).init(allocator);
     defer numbers.deinit();
 
-    var symbols = std.ArrayList(SymbolPos).init(allocator);
+    var symbols = std.ArrayList(Pos).init(allocator);
     defer symbols.deinit();
 
     // Find numbers
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
-    var curY: isize = 0;
-    while (linesIter.next()) |line| : (curY += 1) {
-        var items = std.mem.splitAny(u8, line, ".#@/*+$-=&%");
-        var curX: isize = 0;
-        while (items.next()) |pull| : (curX += 1) {
-            if (pull.len != 0) {
-                const number = try std.fmt.parseInt(usize, pull, 10);
-                try numbers.append(NumberPos{ .number = number, .x = curX, .y = curY });
-                curX += @intCast(pull.len);
+    var y: usize = 0;
+    while (linesIter.next()) |line| : (y += 1) {
+        var partNumberIter = std.mem.splitAny(u8, line, ".#@/*+$-=&%");
+        var x: usize = 0;
+        while (partNumberIter.next()) |partNumber| : (x += 1) {
+            if (partNumber.len != 0) {
+                const number = try std.fmt.parseInt(usize, partNumber, 10);
+                try numbers.append(NumberPos.new(number, x, y));
+                x += partNumber.len;
             }
         }
     }
 
-    // Find stars
+    // Find all symbols
     linesIter = std.mem.tokenizeScalar(u8, input, '\n');
-    curY = 0;
-    while (linesIter.next()) |line| : (curY += 1) {
-        for (line, 0..) |char, curX| {
+    y = 0;
+    while (linesIter.next()) |line| : (y += 1) {
+        for (line, 0..) |char, x| {
             if (char != '.' and !std.ascii.isDigit(char)) {
-                try symbols.append(SymbolPos{ .type = char, .x = @intCast(curX), .y = curY });
+                try symbols.append(Pos.new(x, y));
             }
         }
     }
 
     var sum: usize = 0;
+    // For every number
     for (numbers.items) |number| {
         for (symbols.items) |symbol| {
-            if (@abs(symbol.y - number.y) <= 1) {
-                const numberLength: isize = @intCast(std.math.log10(number.number + 1));
-                if (symbol.x >= (number.x - 1) and symbol.x <= (number.x + numberLength + 1)) {
-                    sum += number.number;
-                    break;
-                }
+            // Check if there is a symbol next to it
+            if (number.next_to(symbol)) {
+                sum += number.number;
+                break;
             }
         }
     }
@@ -73,51 +94,49 @@ fn part2(input: []const u8) !usize {
     var numbers = std.ArrayList(NumberPos).init(allocator);
     defer numbers.deinit();
 
-    var stars = std.ArrayList(SymbolPos).init(allocator);
+    var stars = std.ArrayList(Pos).init(allocator);
     defer stars.deinit();
 
     // Find numbers
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
-    var curY: isize = 0;
-    while (linesIter.next()) |line| : (curY += 1) {
-        var items = std.mem.splitAny(u8, line, ".#@/*+$-=&%");
-        var curX: isize = 0;
-        while (items.next()) |pull| : (curX += 1) {
-            if (pull.len != 0) {
-                const number = try std.fmt.parseInt(usize, pull, 10);
-                try numbers.append(NumberPos{ .number = number, .x = curX, .y = curY });
-                curX += @intCast(pull.len);
+    var y: usize = 0;
+    while (linesIter.next()) |line| : (y += 1) {
+        var partNumberIter = std.mem.splitAny(u8, line, ".#@/*+$-=&%");
+        var x: usize = 0;
+        while (partNumberIter.next()) |partNumber| : (x += 1) {
+            if (partNumber.len != 0) {
+                const number = try std.fmt.parseInt(usize, partNumber, 10);
+                try numbers.append(NumberPos.new(number, x, y));
+                x += partNumber.len;
             }
         }
     }
 
     // Find stars
     linesIter = std.mem.tokenizeScalar(u8, input, '\n');
-    curY = 0;
-    while (linesIter.next()) |line| : (curY += 1) {
-        for (line, 0..) |char, curX| {
+    y = 0;
+    while (linesIter.next()) |line| : (y += 1) {
+        for (line, 0..) |char, x| {
             if (char == '*') {
-                try stars.append(SymbolPos{ .type = char, .x = @intCast(curX), .y = curY });
+                try stars.append(Pos.new(x, y));
             }
         }
     }
 
     var sum: usize = 0;
     for (stars.items) |star| {
-        var adjacentNumbers = std.ArrayList(usize).init(allocator);
-        defer adjacentNumbers.deinit();
+        var count: usize = 0;
+        var product: usize = 1;
 
         for (numbers.items) |number| {
-            if (@abs(star.y - number.y) <= 1) {
-                const numberLength: isize = @intCast(std.math.log10(number.number + 1));
-                if (star.x >= (number.x - 1) and star.x <= (number.x + numberLength + 1)) {
-                    try adjacentNumbers.append(number.number);
-                }
+            if (number.next_to(star)) {
+                count += 1;
+                product *= number.number;
             }
         }
 
-        if (adjacentNumbers.items.len == 2) {
-            sum += adjacentNumbers.items[0] * adjacentNumbers.items[1];
+        if (count == 2) {
+            sum += product;
         }
     }
 
