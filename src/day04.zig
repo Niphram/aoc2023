@@ -1,42 +1,41 @@
 const std = @import("std");
 
-fn part1(input: []const u8) !usize {
-    // Find numbers
-    var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
+fn calculate_card(card: []const u8) !usize {
+    const splitSequenceOnce = @import("./util.zig").splitSequenceOnce;
 
-    var total: usize = 0;
+    const card_data = splitSequenceOnce(u8, card, ": ")[1];
+    const win_numbers, const our_numbers = splitSequenceOnce(u8, card_data, " | ");
 
-    while (linesIter.next()) |line| {
-        const data_start = std.mem.indexOfScalar(u8, line, ':').? + 2;
+    var win_iter = std.mem.tokenizeScalar(u8, win_numbers, ' ');
+    var our_iter = std.mem.tokenizeScalar(u8, our_numbers, ' ');
 
-        const data = line[data_start..];
+    var win_count: usize = 0;
 
-        const seperator = std.mem.indexOfScalar(u8, data, '|').?;
-        const winning_numbers = data[0 .. seperator - 1];
-        const my_numbers = data[seperator + 2 ..];
-        var score: ?usize = null;
+    while (win_iter.next()) |win_s| {
+        our_iter.reset();
 
-        var winning_iter = std.mem.tokenizeScalar(u8, winning_numbers, ' ');
-        var numbers_iter = std.mem.tokenizeScalar(u8, my_numbers, ' ');
-        while (winning_iter.next()) |win| {
-            numbers_iter.reset();
+        while (our_iter.next()) |our_s| {
+            const win_n = try std.fmt.parseInt(i32, win_s, 10);
+            const our_n = try std.fmt.parseInt(i32, our_s, 10);
 
-            while (numbers_iter.next()) |number| {
-                const winning = try std.fmt.parseInt(i32, win, 10);
-                const my = try std.fmt.parseInt(i32, number, 10);
-
-                if (winning == my) {
-                    if (score) |*score_r| {
-                        score_r.* *= 2;
-                    } else {
-                        score = 1;
-                    }
-                }
+            if (win_n == our_n) {
+                win_count += 1;
             }
         }
+    }
 
-        if (score) |score_r| {
-            total += score_r;
+    return win_count;
+}
+
+fn part1(input: []const u8) !usize {
+    var total: usize = 0;
+
+    var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
+    while (linesIter.next()) |line| {
+        const wins = try calculate_card(line);
+
+        if (wins > 0) {
+            total += std.math.pow(usize, 2, wins - 1);
         }
     }
 
@@ -45,60 +44,32 @@ fn part1(input: []const u8) !usize {
 
 fn part2(input: []const u8) !usize {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
     const allocator = gpa.allocator();
-    defer {
-        _ = gpa.deinit();
-    }
 
     const Card = struct { count: usize = 1, wins: usize = 0 };
 
-    var winCounts = std.ArrayList(Card).init(allocator);
-    defer winCounts.deinit();
+    var cards = std.ArrayList(Card).init(allocator);
+    defer cards.deinit();
 
-    // Find numbers
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
+    while (linesIter.next()) |line| {
+        const wins = try calculate_card(line);
 
-    var game_idx: usize = 0;
-    while (linesIter.next()) |line| : (game_idx += 1) {
-        const data_start = std.mem.indexOfScalar(u8, line, ':').? + 2;
-
-        const data = line[data_start..];
-
-        const seperator = std.mem.indexOfScalar(u8, data, '|').?;
-        const winning_numbers = data[0 .. seperator - 1];
-        const my_numbers = data[seperator + 2 ..];
-
-        var wins: usize = 0;
-
-        var winning_iter = std.mem.tokenizeScalar(u8, winning_numbers, ' ');
-        var numbers_iter = std.mem.tokenizeScalar(u8, my_numbers, ' ');
-        while (winning_iter.next()) |win| {
-            numbers_iter.reset();
-
-            while (numbers_iter.next()) |number| {
-                const winning = try std.fmt.parseInt(i32, win, 10);
-                const my = try std.fmt.parseInt(i32, number, 10);
-
-                if (winning == my) {
-                    wins += 1;
-                }
-            }
-        }
-
-        try winCounts.append(Card{ .wins = wins });
+        try cards.append(Card{ .wins = wins });
     }
 
     var total: usize = 0;
 
-    for (0..winCounts.items.len) |i| {
-        total += winCounts.items[i].count;
-        const wins = winCounts.items[i].wins;
+    for (cards.items, 0..) |card, card_idx| {
+        total += card.count;
 
-        const max = @min(wins, winCounts.items.len - i - 1);
+        const next_cards_idx = card_idx + 1;
+        const capped_wins = @min(next_cards_idx + card.wins, cards.items.len);
+        const won_cards = cards.items[next_cards_idx..capped_wins];
 
-        for (0..max) |j| {
-            const idx = i + j + 1;
-            winCounts.items[idx].count += winCounts.items[i].count;
+        for (won_cards) |*won_card| {
+            won_card.*.count += card.count;
         }
     }
 

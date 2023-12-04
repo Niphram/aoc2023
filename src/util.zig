@@ -25,3 +25,19 @@ pub fn findLastOf(comptime T: type, slice: []const T, values: []const []const T)
 
     return null;
 }
+
+pub fn splitSequenceOnce(comptime T: type, buffer: []const T, delimiter: []const T) std.meta.Tuple(&[_]type{ []const T, []const T }) {
+    const delimiter_pos = std.mem.indexOf(u8, buffer, delimiter).?;
+    const left = buffer[0..delimiter_pos];
+    const right = buffer[delimiter_pos + delimiter.len ..];
+
+    return .{ left, right };
+}
+
+pub fn splitScalarOnce(comptime T: type, buffer: []const T, delimiter: T) std.meta.Tuple(&[_]type{ []const T, []const T }) {
+    const delimiter_pos = std.mem.indexOfScalar(u8, buffer, delimiter).?;
+    const left = buffer[0..delimiter_pos];
+    const right = buffer[delimiter_pos + 1 ..];
+
+    return .{ left, right };
+}
