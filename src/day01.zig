@@ -1,4 +1,5 @@
 const std = @import("std");
+const util = @import("util.zig");
 
 fn part1(input: []const u8) usize {
     var calibrationSum: usize = 0;
@@ -41,33 +42,11 @@ fn part2(input: []const u8) usize {
     // Split input into lines
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
     while (linesIter.next()) |line| {
-        // Keep track of the first and last number
-        var firstNumberMinIndex: usize = std.math.maxInt(usize);
-        var lastNumberMaxIndex: usize = 0;
-        var firstNumber: ?usize = null;
-        var lastNumber: ?usize = null;
-
-        // Iterate through all number strings
-        for (NUMBERS, 0..) |numberSlice, currentNumber| {
-            // Find first number
-            if (std.mem.indexOf(u8, line, numberSlice)) |idx| {
-                if (idx < firstNumberMinIndex) {
-                    firstNumberMinIndex = idx;
-                    firstNumber = currentNumber % 9 + 1;
-                }
-            }
-
-            // Find last number
-            if (std.mem.lastIndexOf(u8, line, numberSlice)) |idx| {
-                if (idx >= lastNumberMaxIndex) {
-                    lastNumberMaxIndex = idx;
-                    lastNumber = currentNumber % 9 + 1;
-                }
-            }
-        }
+        const first = util.findFirstOf(u8, line, &NUMBERS).? % 9 + 1;
+        const last = util.findLastOf(u8, line, &NUMBERS).? % 9 + 1;
 
         // Update total with calibration value
-        calibrationSum += firstNumber.? * 10 + lastNumber.?;
+        calibrationSum += first * 10 + last;
     }
 
     return calibrationSum;
