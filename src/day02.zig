@@ -7,88 +7,69 @@ const ColorCount = struct {
     blue: usize = 0,
 };
 
+fn maxColors(game: []const u8) !ColorCount {
+    const util = @import("./util.zig");
+
+    // Get game data
+    const game_data = util.splitSequenceOnce(u8, game, ": ")[1];
+
+    var max_colors = ColorCount{};
+
+    // Iterate through the pulls
+    var pull_iter = std.mem.splitSequence(u8, game_data, "; ");
+    while (pull_iter.next()) |pull| {
+
+        // Iterate through the blocks
+        var block_iter = std.mem.splitSequence(u8, pull, ", ");
+        while (block_iter.next()) |block| {
+
+            // Get block color and count
+            const count_s, const color = util.splitScalarOnce(u8, block, ' ');
+            const count = try std.fmt.parseUnsigned(usize, count_s, 10);
+
+            // Update maximums
+            inline for (std.meta.fields(ColorCount)) |field| {
+                if (std.mem.eql(u8, color, field.name)) {
+                    const countField = &@field(max_colors, field.name);
+                    countField.* = @max(countField.*, count);
+                }
+            }
+        }
+    }
+
+    return max_colors;
+}
+
 fn part1(input: []const u8) !usize {
-    var idSum: usize = 0;
+    var id_sum: usize = 0;
 
     // Limits for each color
     const COLOR_LIMITS = ColorCount{ .red = 12, .green = 13, .blue = 14 };
 
-    // Iterate through all lines
-    var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
-    var game: usize = 1;
-    gameloop: while (linesIter.next()) |line| : (game += 1) {
-        // Find beginning of game data
-        const startOfData = std.mem.indexOfScalar(u8, line, ':').? + 2;
+    // Iterate through lines
+    var lines_iter = std.mem.tokenizeScalar(u8, input, '\n');
+    var game_id: usize = 1;
+    while (lines_iter.next()) |line| : (game_id += 1) {
+        // Get maximum counts
+        const counts = try maxColors(line);
 
-        // Iterate through the pulls
-        var pulls = std.mem.splitSequence(u8, line[startOfData..], "; ");
-        while (pulls.next()) |pull| {
-
-            // Iterate through different block pulls
-            var blocks = std.mem.splitSequence(u8, pull, ", ");
-            while (blocks.next()) |block| {
-
-                // Split pull into <count> <color>
-                const space = std.mem.indexOfScalar(u8, block, ' ').?;
-                const count = try std.fmt.parseInt(i32, block[0..space], 10);
-                const color = block[space + 1 ..];
-
-                // Compiletime comparison to struct fields
-                inline for (std.meta.fields(@TypeOf(COLOR_LIMITS))) |field| {
-                    if (std.mem.eql(u8, color, field.name)) {
-
-                        // If count is higher than limit, skip this game
-                        if (count > @field(COLOR_LIMITS, field.name)) {
-                            continue :gameloop;
-                        }
-                    }
-                }
-            }
+        // Check if counts fall below limit and update sum of IDs
+        if (counts.red <= COLOR_LIMITS.red and counts.green <= COLOR_LIMITS.green and counts.blue <= COLOR_LIMITS.blue) {
+            id_sum += game_id;
         }
-
-        // Update sum of valid game IDs
-        idSum += game;
     }
 
-    return idSum;
+    return id_sum;
 }
 
 fn part2(input: []const u8) !usize {
     var idSum: usize = 0;
 
     // Iterate through lines
-    var game: usize = 1;
     var linesIter = std.mem.tokenizeScalar(u8, input, '\n');
-    while (linesIter.next()) |line| : (game += 1) {
-
-        // Find start of game data
-        const startOfData = std.mem.indexOfScalar(u8, line, ':').? + 2;
-
-        // Keep track of color counts
-        var counts = ColorCount{};
-
-        // Iterate through pulls
-        var pulls = std.mem.splitSequence(u8, line[startOfData..], "; ");
-        while (pulls.next()) |pull| {
-
-            // Iterate through blocks
-            var blocks = std.mem.splitSequence(u8, pull, ", ");
-            while (blocks.next()) |block| {
-
-                // Split pull into <count> <color>
-                const space = std.mem.indexOfScalar(u8, block, ' ').?;
-                const count = try std.fmt.parseInt(usize, block[0..space], 10);
-                const color = block[space + 1 ..];
-
-                // Update maximums based on color
-                inline for (std.meta.fields(ColorCount)) |field| {
-                    if (std.mem.eql(u8, color, field.name)) {
-                        const countField = &@field(counts, field.name);
-                        countField.* = @max(countField.*, count);
-                    }
-                }
-            }
-        }
+    while (linesIter.next()) |line| {
+        // Get maximum counts
+        const counts = try maxColors(line);
 
         // Update total sum
         idSum += counts.red * counts.green * counts.blue;

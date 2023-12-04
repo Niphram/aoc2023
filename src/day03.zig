@@ -33,9 +33,7 @@ const NumberPos = struct {
 fn part1(input: []const u8) !usize {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    defer {
-        _ = gpa.deinit();
-    }
+    defer _ = gpa.deinit();
 
     var numbers = std.ArrayList(NumberPos).init(allocator);
     defer numbers.deinit();
@@ -87,9 +85,7 @@ fn part1(input: []const u8) !usize {
 fn part2(input: []const u8) !usize {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    defer {
-        _ = gpa.deinit();
-    }
+    defer _ = gpa.deinit();
 
     var numbers = std.ArrayList(NumberPos).init(allocator);
     defer numbers.deinit();
