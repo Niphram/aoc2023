@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 pub fn findFirstOf(comptime T: type, slice: []const T, values: []const []const T) ?usize {
     for (0..slice.len) |i| {
@@ -89,7 +90,10 @@ pub fn removeSet(comptime T: type, comptime set: []const T, comptime remove: []c
     return new_set;
 }
 
-pub fn greatestCommonDivisor(a: usize, b: usize) usize {
+pub fn greatestCommonDivisor(a: anytype, b: anytype) @TypeOf(a, b) {
+    const T = @TypeOf(a, b);
+    comptime assert(@typeInfo(T) == .Int);
+
     var a_n = a;
     var b_n = b;
 
@@ -102,6 +106,9 @@ pub fn greatestCommonDivisor(a: usize, b: usize) usize {
     return a_n;
 }
 
-pub fn leastCommonMultiple(a: usize, b: usize) usize {
+pub fn leastCommonMultiple(a: anytype, b: anytype) @TypeOf(a, b) {
+    const T = @TypeOf(a, b);
+    comptime assert(@typeInfo(T) == .Int);
+
     return a * b / greatestCommonDivisor(a, b);
 }
