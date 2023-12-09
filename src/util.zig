@@ -88,3 +88,20 @@ pub fn removeSet(comptime T: type, comptime set: []const T, comptime remove: []c
 
     return new_set;
 }
+
+pub fn greatestCommonDivisor(a: usize, b: usize) usize {
+    var a_n = a;
+    var b_n = b;
+
+    while (b_n != 0) {
+        const tmp = b_n;
+        b_n = @mod(a_n, b_n);
+        a_n = tmp;
+    }
+
+    return a_n;
+}
+
+pub fn leastCommonMultiple(a: usize, b: usize) usize {
+    return a * b / greatestCommonDivisor(a, b);
+}
