@@ -41,3 +41,50 @@ pub fn splitScalarOnce(comptime T: type, buffer: []const T, delimiter: T) std.me
 
     return .{ left, right };
 }
+
+pub fn maxMultiplesOfAny(comptime T: type, buffer: []const T, needles: []const T) usize {
+    var max_multiples: usize = 0;
+
+    for (needles) |needle| {
+        const count = std.mem.count(T, buffer, &[_]u8{needle});
+        max_multiples = @max(count, max_multiples);
+    }
+
+    return max_multiples;
+}
+
+pub fn countUniquesOfAny(comptime T: type, buffer: []const T, needles: []const T) usize {
+    var uniques: usize = 0;
+
+    for (needles) |item| {
+        if (std.mem.indexOfScalar(T, buffer, item) != null) {
+            uniques += 1;
+        }
+    }
+
+    return uniques;
+}
+
+pub fn countOfAny(comptime T: type, buffer: []const T, needles: []const T) usize {
+    var count: usize = 0;
+
+    for (needles) |needle| {
+        count += std.mem.count(T, buffer, &[_]T{needle});
+    }
+
+    return count;
+}
+
+// Assumes both arrays are actual sets and b is a subset of a
+pub fn removeSet(comptime T: type, comptime set: []const T, comptime remove: []const T) [set.len - remove.len]T {
+    var new_set: [set.len - remove.len]T = undefined;
+    var idx: usize = 0;
+    for (set) |value| {
+        if (std.mem.indexOfScalar(T, remove, value) == null) {
+            new_set[idx] = value;
+            idx += 1;
+        }
+    }
+
+    return new_set;
+}
