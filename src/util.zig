@@ -1,6 +1,8 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+pub const sets = @import("./util/set.zig");
+
 pub fn findFirstOf(comptime T: type, slice: []const T, values: []const []const T) ?usize {
     for (0..slice.len) |i| {
         for (values, 0..) |value, n| {

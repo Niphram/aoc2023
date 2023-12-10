@@ -77,36 +77,41 @@ const PipeGrid = struct {
         const start = self.start;
         const grid = self.tiles;
 
-        const pipes = "|-LJF7";
-        // Bitset of pipes (order is inverted)
-        const MaskInt = std.meta.Int(.unsigned, pipes.len);
-        var possibilities: MaskInt = std.math.maxInt(MaskInt);
-
         const indexOfScalar = std.mem.indexOfScalar;
 
+        var possibilities = util.sets.StaticBitSet(u8, "|-LJF7").initFull();
+
         // Top
-        if (start.y == 0 or indexOfScalar(u8, "|F7", grid[self.idx(start.step(.Up))].type) == null) {
-            possibilities &= 0b110010; // Start can't be '|', 'L' or 'J'
+        if (start.y == 0 or
+            indexOfScalar(u8, "|F7", grid[self.idx(start.step(.Up))].type) == null)
+        {
+            possibilities.unset("|LJ"); // Start can't be '|', 'L' or 'J'
         }
 
         // Right
-        if (start.x == self.width - 1 or indexOfScalar(u8, "-J7", grid[self.idx(start.step(.Right))].type) == null) {
-            possibilities &= 0b101001; // Start can't be '-', 'L' or 'F'
+        if (start.x == self.width - 1 or
+            indexOfScalar(u8, "-J7", grid[self.idx(start.step(.Right))].type) == null)
+        {
+            possibilities.unset("-LF"); // Start can't be '-', 'L' or 'F'
         }
 
         // Bottom
-        if (start.y == self.height - 1 or indexOfScalar(u8, "|LJ", grid[self.idx(start.step(.Down))].type) == null) {
-            possibilities &= 0b001110; // Start can't be '|', 'F' or '7'
+        if (start.y == self.height - 1 or
+            indexOfScalar(u8, "|LJ", grid[self.idx(start.step(.Down))].type) == null)
+        {
+            possibilities.unset("|F7"); // Start can't be '|', 'F' or '7'
         }
 
         // Left
-        if (start.x == 0 or indexOfScalar(u8, "-LF", grid[self.idx(start.step(.Left))].type) == null) {
-            possibilities &= 0b010101; // Start can't be '-', 'J' or '7'
+        if (start.x == 0 or
+            indexOfScalar(u8, "-LF", grid[self.idx(start.step(.Left))].type) == null)
+        {
+            possibilities.unset("-J7"); // Start can't be '-', 'J' or '7'
         }
 
-        std.debug.assert(@popCount(possibilities) == 1);
+        std.debug.assert(possibilities.count() == 1);
 
-        return .{ .type = @intCast(pipes[@ctz(possibilities)]) };
+        return .{ .type = @intCast(possibilities.findFirstSet().?) };
     }
 
     // Assumes a newline at the end of the input
