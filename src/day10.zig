@@ -1,46 +1,43 @@
 const std = @import("std");
 const util = @import("./util.zig");
 
+const Pos = struct {
+    const Self = @This();
+
+    const Dir = enum { Up, Right, Down, Left };
+
+    x: usize,
+    y: usize,
+
+    fn step(self: Self, dir: Dir) Self {
+        return switch (dir) {
+            .Up => .{ .x = self.x, .y = self.y - 1 },
+            .Right => .{ .x = self.x + 1, .y = self.y },
+            .Down => .{ .x = self.x, .y = self.y + 1 },
+            .Left => .{ .x = self.x - 1, .y = self.y },
+        };
+    }
+};
+
 const PipeGrid = struct {
     const Self = @This();
 
-    const Pos = struct { x: isize, y: isize };
-
-    const Pipe = struct {
+    const Pipe = packed struct {
         loop: bool = false,
-        type: u8,
+        type: u7,
     };
 
     allocator: std.mem.Allocator,
 
-    width: isize,
-    height: isize,
+    width: usize,
+    height: usize,
 
     start: Pos,
 
-    grid: []Pipe,
+    tiles: []Pipe,
 
-    fn idx(self: Self, x: isize, y: isize) usize {
-        return @intCast(x + y * (self.width + 1));
-    }
-
-    fn getPos(self: Self, x: isize, y: isize) Pipe {
-        if (x < 0 or
-            x >= self.width or
-            y < 0 or
-            y >= self.height)
-        {
-            return .{ .type = '.' };
-        }
-
-        return self.grid[self.idx(x, y)];
-    }
-
-    fn setPos(self: *Self, x: isize, y: isize, val: Pipe) void {
-        if (x < 0 or x >= self.width) return;
-        if (y < 0 or y >= self.height) return;
-
-        self.grid[self.idx(x, y)] = val;
+    fn idx(self: Self, pos: Pos) usize {
+        return pos.x + pos.y * self.width;
     }
 
     // Traverses the loop and returns the length
@@ -48,119 +45,106 @@ const PipeGrid = struct {
     fn calculateLoop(self: *Self) usize {
         var step: usize = 0;
 
-        const Dir = enum { Up, Right, Down, Left };
+        var position = self.start;
+        var direction = Pos.Dir.Up;
 
-        const starting_pipe = self.guessStartPipe();
+        return while (true) {
+            const pipe = &self.tiles[self.idx(position)];
 
-        var pipe = starting_pipe;
-        var current_pos = self.start;
-        var last_dir: Dir = .Up;
+            // If were on a tile that is part of the loop, stop searching
+            if (pipe.loop) break step;
 
-        while (true) : ({
-            step += 1;
-            pipe = self.getPos(current_pos.x, current_pos.y);
+            // Mark tile as part of the loop
+            pipe.*.loop = true;
 
-            var ended = false;
-            if (pipe.type == 'S') {
-                pipe = starting_pipe;
-                ended = true;
-            }
-
-            // Mark loop
-            self.setPos(current_pos.x, current_pos.y, .{ .loop = true, .type = pipe.type });
-
-            if (ended) {
-                break;
-            }
-        }) {
-            last_dir = switch (pipe.type) {
-                '|' => if (last_dir == .Up) .Up else .Down,
-                '-' => if (last_dir == .Right) .Right else .Left,
-                '7' => if (last_dir == .Up) .Left else .Down,
-                'J' => if (last_dir == .Down) .Left else .Up,
-                'L' => if (last_dir == .Down) .Right else .Up,
-                'F' => if (last_dir == .Up) .Right else .Down,
+            // Decide on new direction based on the last direction and the pipe
+            direction = switch (pipe.type) {
+                '|' => if (direction == .Up) .Up else .Down,
+                '-' => if (direction == .Right) .Right else .Left,
+                '7' => if (direction == .Up) .Left else .Down,
+                'J' => if (direction == .Down) .Left else .Up,
+                'L' => if (direction == .Down) .Right else .Up,
+                'F' => if (direction == .Up) .Right else .Down,
                 else => unreachable,
             };
 
-            current_pos = switch (last_dir) {
-                .Up => Pos{ .x = current_pos.x, .y = current_pos.y - 1 },
-                .Right => Pos{ .x = current_pos.x + 1, .y = current_pos.y },
-                .Down => Pos{ .x = current_pos.x, .y = current_pos.y + 1 },
-                .Left => Pos{ .x = current_pos.x - 1, .y = current_pos.y },
-            };
-        }
-
-        return step;
+            step += 1;
+            position = position.step(direction);
+        };
     }
 
     fn guessStartPipe(self: Self) Pipe {
-        const t = self.getPos(self.start.x, self.start.y - 1).type;
-        const r = self.getPos(self.start.x + 1, self.start.y).type;
-        const b = self.getPos(self.start.x, self.start.y + 1).type;
-        const l = self.getPos(self.start.x - 1, self.start.y).type;
+        const start = self.start;
+        const grid = self.tiles;
 
         const pipes = "|-LJF7";
-        var possibilities = std.bit_set.StaticBitSet(pipes.len).initFull();
+        // Bitset of pipes (order is inverted)
+        const MaskInt = std.meta.Int(.unsigned, pipes.len);
+        var possibilities: MaskInt = std.math.maxInt(MaskInt);
+
+        const indexOfScalar = std.mem.indexOfScalar;
 
         // Top
-        if (std.mem.indexOfScalar(u8, "|F7", t) == null) {
-            possibilities.unset(0); // |
-            possibilities.unset(2); // L
-            possibilities.unset(3); // J
+        if (start.y == 0 or indexOfScalar(u8, "|F7", grid[self.idx(start.step(.Up))].type) == null) {
+            possibilities &= 0b110010; // Start can't be '|', 'L' or 'J'
         }
 
         // Right
-        if (std.mem.indexOfScalar(u8, "-J7", r) == null) {
-            possibilities.unset(1); // -
-            possibilities.unset(2); // L
-            possibilities.unset(4); // F
+        if (start.x == self.width - 1 or indexOfScalar(u8, "-J7", grid[self.idx(start.step(.Right))].type) == null) {
+            possibilities &= 0b101001; // Start can't be '-', 'L' or 'F'
         }
 
         // Bottom
-        if (std.mem.indexOfScalar(u8, "|LJ", b) == null) {
-            possibilities.unset(0); // |
-            possibilities.unset(4); // F
-            possibilities.unset(5); // 7
+        if (start.y == self.height - 1 or indexOfScalar(u8, "|LJ", grid[self.idx(start.step(.Down))].type) == null) {
+            possibilities &= 0b001110; // Start can't be '|', 'F' or '7'
         }
 
         // Left
-        if (std.mem.indexOfScalar(u8, "-LF", l) == null) {
-            possibilities.unset(1); // -
-            possibilities.unset(3); // J
-            possibilities.unset(5); // 7
+        if (start.x == 0 or indexOfScalar(u8, "-LF", grid[self.idx(start.step(.Left))].type) == null) {
+            possibilities &= 0b010101; // Start can't be '-', 'J' or '7'
         }
 
-        std.debug.assert(possibilities.count() == 1);
+        std.debug.assert(@popCount(possibilities) == 1);
 
-        return .{ .type = pipes[possibilities.findFirstSet().?] };
+        return .{ .type = @intCast(pipes[@ctz(possibilities)]) };
     }
 
     // Assumes a newline at the end of the input
     fn parse(allocator: std.mem.Allocator, input: []const u8) !Self {
-        const width: isize = @intCast(std.mem.indexOfScalar(u8, input, '\n').?);
-        const height: isize = @intCast(std.mem.count(u8, input, "\n"));
+        const width = std.mem.indexOfScalar(u8, input, '\n').?;
+        const height = (input.len + 1) / width;
 
-        const start_idx: isize = @intCast(std.mem.indexOfScalar(u8, input, 'S').?);
-        const start = Pos{ .x = @mod(start_idx, width + 1), .y = @divFloor(start_idx, (width + 1)) };
+        const start_idx = std.mem.indexOfScalar(u8, input, 'S').?;
+        const start = Pos{ .x = @mod(start_idx, width + 1), .y = start_idx / (width + 1) };
 
         // Allocate our own buffer so that we can modify it
-        const grid = try allocator.alloc(Pipe, input.len);
-        for (input, 0..) |tile, i| {
-            grid[i] = .{ .type = tile };
+        const tiles = try allocator.alloc(Pipe, width * height);
+        {
+            var i: usize = 0;
+            for (input) |tile| {
+                if (tile != '\n') {
+                    tiles[i] = .{ .type = @intCast(tile) };
+                    i += 1;
+                }
+            }
         }
 
-        return Self{
+        var self = Self{
             .allocator = allocator,
             .width = width,
             .height = height,
             .start = start,
-            .grid = grid,
+            .tiles = tiles,
         };
+
+        // Replace starting node with correct pipe
+        tiles[self.idx(start)] = .{ .type = self.guessStartPipe().type };
+
+        return self;
     }
 
     fn deinit(self: *Self) void {
-        self.allocator.free(self.grid);
+        self.allocator.free(self.tiles);
     }
 };
 
@@ -191,7 +175,7 @@ fn part2(input: []const u8) !usize {
 
     var encased_area: usize = 0;
     var in_loop = false;
-    for (grid.grid) |tile| {
+    for (grid.tiles) |tile| {
         // Increase encased area if tile is not the loop itself
         // and were currently in the loop
         if (in_loop and !tile.loop) {
