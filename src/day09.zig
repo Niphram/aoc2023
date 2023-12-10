@@ -105,6 +105,6 @@ pub fn main() !void {
     const content = comptime @embedFile("data/day09.txt");
 
     std.debug.print("~~ Day 09 ~~\n", .{});
-    std.debug.print("Part 1: {any}\n", .{try part1(content)});
+    std.debug.print("Part 1: {}\n", .{try part1(content)});
     std.debug.print("Part 2: {}\n", .{try part2(content)});
 }
