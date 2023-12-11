@@ -14,13 +14,9 @@ pub fn countDuplicates(comptime T: type, buffer: []const T) usize {
 }
 
 pub fn onlyUniqueValues(comptime T: type, buffer: []const T) bool {
-    for (buffer, 1..) |item, i| {
-        if (std.mem.indexOfScalarPos(T, buffer, i, item) != null) {
-            return false;
-        }
-    }
+    if (buffer.len == 1) return true;
 
-    return true;
+    return std.mem.allEqual(T, buffer[1..], buffer[0]);
 }
 
 pub fn StaticBitSet(comptime T: type, comptime set_array: []const T) type {
