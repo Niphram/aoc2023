@@ -17,16 +17,28 @@ const Universe = struct {
     };
 
     const Bounds = struct {
-        x_min: usize,
-        y_min: usize,
-        x_max: usize,
-        y_max: usize,
+        x_min: usize = std.math.maxInt(usize),
+        y_min: usize = std.math.maxInt(usize),
+        x_max: usize = 0,
+        y_max: usize = 0,
+
+        fn add(self: *Self.Bounds, x: usize, y: usize) Self.Bounds {
+            return .{
+                .x_min = @min(self.x_min, x),
+                .y_min = @min(self.y_min, y),
+                .x_max = @max(self.x_max, x),
+                .y_max = @max(self.y_max, y),
+            };
+        }
     };
 
     galaxies: std.ArrayList(Galaxy),
+    bounds: Bounds,
 
     fn init(allocator: std.mem.Allocator, input: []const u8) !Self {
         var galaxies = std.ArrayList(Galaxy).init(allocator);
+
+        var bounds = Bounds{};
 
         // Parse galaxies
         {
@@ -35,17 +47,18 @@ const Universe = struct {
             while (lines_iter.next()) |line| : (y += 1) {
                 for (line, 0..) |c, x| {
                     if (c == '#') {
+                        bounds = bounds.add(x, y);
                         try galaxies.append(.{ .x = x, .y = y });
                     }
                 }
             }
         }
 
-        return .{ .galaxies = galaxies };
+        return .{ .galaxies = galaxies, .bounds = bounds };
     }
 
     fn expand(self: *Self, expansion_factor: usize) void {
-        const bounds = self.getBounds();
+        const bounds = self.bounds;
 
         // Expand empty rows
         var row = bounds.y_max;
@@ -77,31 +90,11 @@ const Universe = struct {
 
         for (self.galaxies.items, 1..) |point_a, i| {
             for (self.galaxies.items[i..]) |point_b| {
-                total_distance += point_a.distanceTo(point_b);
+                total_distance += point_a.manhattanDis(point_b);
             }
         }
 
         return total_distance;
-    }
-
-    fn countGalaxies(self: Self) usize {
-        return self.galaxies.items.len;
-    }
-
-    fn getBounds(self: Self) Bounds {
-        var x_min: usize = std.math.maxInt(usize);
-        var y_min: usize = std.math.maxInt(usize);
-        var x_max: usize = 0;
-        var y_max: usize = 0;
-
-        for (self.galaxies.items) |galaxy| {
-            x_min = @min(x_min, galaxy.x);
-            y_min = @min(y_min, galaxy.y);
-            x_max = @max(x_max, galaxy.x);
-            y_max = @max(y_max, galaxy.y);
-        }
-
-        return .{ .x_min = x_min, .y_min = y_min, .x_max = x_max, .y_max = y_max };
     }
 
     fn deinit(self: *Self) void {
