@@ -4,18 +4,18 @@ const util = @import("./util.zig");
 const Grid = struct {
     const Self = @This();
 
-    const Reflection = struct {
-        row: ?usize,
-        col: ?usize,
+    const Mirror = union(enum) {
+        col: usize,
+        row: usize,
 
-        fn score(self: Reflection) usize {
-            if (self.row) |row| {
-                return (row + 1) * 100;
-            } else if (self.col) |col| {
-                return (col + 1);
-            }
+        none,
 
-            unreachable;
+        fn score(self: Mirror) usize {
+            return switch (self) {
+                .col => |col| col + 1,
+                .row => |row| (row + 1) * 100,
+                .none => 0,
+            };
         }
     };
 
@@ -40,76 +40,77 @@ const Grid = struct {
         };
     }
 
-    fn findMirrorLine(self: Self, ignore_col: ?usize, ignore_row: ?usize) !?Reflection {
-        var possible_vertical_line: ?usize = null;
-        var possible_horizontal_line: ?usize = null;
+    fn findVerticalMirror(self: Self, ignore_mirror: ?usize) !?usize {
+        var possibilities = try std.DynamicBitSet.initFull(self.allocator, self.width - 1);
+        defer possibilities.deinit();
 
-        // Vertical Line
-        {
-            var possibilities = try std.DynamicBitSet.initFull(self.allocator, self.width - 1);
-            defer possibilities.deinit();
+        // Remove the ignored mirror from the possibilities
+        if (ignore_mirror) |mirror| {
+            possibilities.unset(mirror);
+        }
 
-            if (ignore_col) |i| {
-                possibilities.unset(i);
-            }
+        // For every row
+        for (0..self.height) |row| {
 
-            for (0..self.height) |row| {
-                mirror_loop: for (0..self.width - 1) |mirror_pos| {
-                    if (!possibilities.isSet(mirror_pos)) continue :mirror_loop;
+            // Check remaining possibilities
+            var remaining = possibilities.iterator(.{});
+            mirror_loop: while (remaining.next()) |mirror_pos| {
 
-                    const max = @min(mirror_pos + 1, self.width - mirror_pos - 1);
-
-                    for (0..max) |i| {
-                        if (self.get(mirror_pos - i, row) != self.get(mirror_pos + i + 1, row)) {
-                            possibilities.unset(mirror_pos);
-                            continue :mirror_loop;
-                        }
+                // Compare items left and right to check for reflection
+                const end = @min(mirror_pos + 1, self.width - mirror_pos - 1);
+                for (0..end) |i| {
+                    if (self.get(mirror_pos - i, row) != self.get(mirror_pos + i + 1, row)) {
+                        possibilities.unset(mirror_pos);
+                        continue :mirror_loop;
                     }
                 }
             }
-
-            if (possibilities.count() > 1) {
-                return null;
-            }
-
-            possible_vertical_line = possibilities.findFirstSet();
         }
 
-        // Horizontal Line
-        {
-            var possibilities = try std.DynamicBitSet.initFull(self.allocator, self.height - 1);
-            defer possibilities.deinit();
+        return possibilities.findFirstSet();
+    }
 
-            if (ignore_row) |i| {
-                possibilities.unset(i);
-            }
+    fn findHorizontalMirror(self: Self, ignore_mirror: ?usize) !?usize {
+        var possibilities = try std.DynamicBitSet.initFull(self.allocator, self.height - 1);
+        defer possibilities.deinit();
 
-            for (0..self.width) |col| {
-                mirror_loop: for (0..self.height - 1) |mirror_pos| {
-                    if (!possibilities.isSet(mirror_pos)) continue :mirror_loop;
+        // Remove the ignored mirror from the possibilities
+        if (ignore_mirror) |mirror| {
+            possibilities.unset(mirror);
+        }
 
-                    const max = @min(mirror_pos + 1, self.height - mirror_pos - 1);
+        // For every column
+        for (0..self.width) |col| {
 
-                    for (0..max) |i| {
-                        if (self.get(col, mirror_pos - i) != self.get(col, mirror_pos + i + 1)) {
-                            possibilities.unset(mirror_pos);
-                            continue :mirror_loop;
-                        }
+            // Check remaining possibilities
+            var remaining = possibilities.iterator(.{});
+            mirror_loop: while (remaining.next()) |mirror_pos| {
+
+                // Compare items above and below to check for reflection
+                const end = @min(mirror_pos + 1, self.height - mirror_pos - 1);
+                for (0..end) |i| {
+                    if (self.get(col, mirror_pos - i) != self.get(col, mirror_pos + i + 1)) {
+                        possibilities.unset(mirror_pos);
+                        continue :mirror_loop;
                     }
                 }
             }
-
-            if (possibilities.count() > 1) {
-                return null;
-            }
-
-            possible_horizontal_line = possibilities.findFirstSet();
         }
 
-        if (possible_vertical_line != null and possible_horizontal_line != null) return null;
-        if (possible_vertical_line == null and possible_horizontal_line == null) return null;
+        return possibilities.findFirstSet();
+    }
 
-        return .{ .col = possible_vertical_line, .row = possible_horizontal_line };
+    fn findMirrorLine(self: Self, ignore_mirror: Mirror) !Mirror {
+        const ignore_col = if (ignore_mirror == .col) ignore_mirror.col else null;
+        const ignore_row = if (ignore_mirror == .row) ignore_mirror.row else null;
+
+        if (try self.findVerticalMirror(ignore_col)) |col| {
+            return Mirror{ .col = col };
+        } else if (try self.findHorizontalMirror(ignore_row)) |row| {
+            return Mirror{ .row = row };
+        } else {
+            return .none;
+        }
     }
 
     fn idx(self: Self, x: usize, y: usize) usize {
@@ -117,13 +118,15 @@ const Grid = struct {
     }
 
     fn get(self: Self, x: usize, y: usize) u8 {
-        return self.tiles[x + (y * (self.width + 1))];
+        return self.tiles[self.idx(x, y)];
     }
-    fn summarize(self: Self, ignore: ?Reflection) !?Reflection {
-        const col_ignore = if (ignore != null) ignore.?.col else null;
-        const row_ignore = if (ignore != null) ignore.?.row else null;
 
-        return self.findMirrorLine(col_ignore, row_ignore);
+    fn toggle(self: *Self, x: usize, y: usize) void {
+        self.tiles[self.idx(x, y)] = switch (self.tiles[self.idx(x, y)]) {
+            '.' => '#',
+            '#' => '.',
+            else => unreachable,
+        };
     }
 
     fn deinit(self: *Self) void {
@@ -139,16 +142,12 @@ fn part1(input: []const u8) !usize {
     var total: usize = 0;
 
     var grid_iter = std.mem.tokenizeSequence(u8, input, "\n\n");
-
-    var i: usize = 0;
-    while (grid_iter.next()) |grid_s| : (i += 1) {
+    while (grid_iter.next()) |grid_s| {
         var grid = try Grid.initParse(allocator, grid_s);
         defer grid.deinit();
-        std.debug.print("Grid: {}, {}x{}\n", .{ i, grid.width, grid.height });
-        const reflection = try grid.summarize(null);
-        if (reflection) |r| {
-            total += r.score();
-        }
+
+        const mirror = try grid.findMirrorLine(.none);
+        total += mirror.score();
     }
 
     return total;
@@ -162,35 +161,21 @@ fn part2(input: []const u8) !usize {
     var total: usize = 0;
 
     var grid_iter = std.mem.tokenizeSequence(u8, input, "\n\n");
-
-    var i: usize = 0;
-    grids: while (grid_iter.next()) |grid_s| : (i += 1) {
+    grids: while (grid_iter.next()) |grid_s| {
         var grid = try Grid.initParse(allocator, grid_s);
         defer grid.deinit();
 
-        const original_reflection = try grid.summarize(null);
-        std.debug.print("Grid: {}, {}x{}, Reflection {?}\n", .{ i, grid.width, grid.height, original_reflection });
+        const original_reflection = try grid.findMirrorLine(.none);
 
+        // Flip every tile and check if a new mirror appears
         for (0..grid.width) |x| {
             for (0..grid.height) |y| {
-                const idx = grid.idx(x, y);
+                grid.toggle(x, y);
+                const mirror = try grid.findMirrorLine(original_reflection);
+                grid.toggle(x, y);
 
-                grid.tiles[idx] = switch (grid.tiles[idx]) {
-                    '.' => '#',
-                    '#' => '.',
-                    else => unreachable,
-                };
-
-                const reflection = try grid.summarize(original_reflection);
-
-                grid.tiles[idx] = switch (grid.tiles[idx]) {
-                    '.' => '#',
-                    '#' => '.',
-                    else => unreachable,
-                };
-
-                if (reflection) |r| {
-                    total += r.score();
+                if (mirror != .none) {
+                    total += mirror.score();
                     continue :grids;
                 }
             }
