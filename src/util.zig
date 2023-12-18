@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 pub const sets = @import("./util/set.zig");
+pub const Grid = @import("./util/grid.zig").Grid;
 
 pub fn findFirstOf(comptime T: type, slice: []const T, values: []const []const T) ?usize {
     for (0..slice.len) |i| {
