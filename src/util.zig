@@ -4,6 +4,10 @@ const assert = std.debug.assert;
 pub const sets = @import("./util/set.zig");
 pub const Grid = @import("./util/grid.zig").Grid;
 
+pub const Polygon = @import("./util/polygon.zig").SimplePolygon;
+pub const Pos = @import("./util/geometry.zig").Pos;
+pub const Dir = @import("./util/geometry.zig").Dir;
+
 pub fn findFirstOf(comptime T: type, slice: []const T, values: []const []const T) ?usize {
     for (0..slice.len) |i| {
         for (values, 0..) |value, n| {
